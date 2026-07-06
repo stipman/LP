@@ -210,6 +210,20 @@
       font-size: 0.9rem;
       opacity: 0.9;
     }
+
+    .full-width-panel {
+      background: #1a1a1a;
+      border-radius: 8px;
+      padding: 1rem;
+      border: 1px solid #333;
+      margin-top: 1.5rem;
+    }
+
+    .full-width-panel h2 {
+      margin-top: 0;
+      font-size: 1.1rem;
+      margin-bottom: 0.5rem;
+    }
     
   </style>
 </head>
@@ -217,7 +231,7 @@
 <body>
   <header>
     <h1>License Plate Trip Tracker</h1>
-    <p>Tap states in the list. Map colors show history and this trip.</p>
+    <p>Tap states/provinces in the list. Map colors show history and this trip.</p>
   </header>
 
   <main>
@@ -226,7 +240,7 @@
       <button id="reset-all" class="danger">Full reset (all history)</button>
     </section>
 
-    <section class="layout
+    <section class="layout">
       <section class="panel">
          <div id="counter-bar">
             <div class="counter-box trip">
@@ -242,7 +256,7 @@
                 <span class="counter-label">Never Seen Yet</span>
               </div>
           </div>
-        <h2>State List</h2>
+        <h2>State & Province List</h2>
         <div id="state-list" class="state-list"></div>
       </section>
 
@@ -256,7 +270,11 @@
         <div class="legend-item"><span class="legend-swatch this-trip"></span>This trip</div>
         <div class="legend-item"><span class="legend-swatch previous-trip"></span>Previous trip</div>
       </div>
+    </section>
 
+    <section class="full-width-panel">
+      <h2>Canadian Provinces & Territories</h2>
+      <div id="province-list" class="state-list"></div>
     </section>
   </main>
 
@@ -267,6 +285,11 @@
       "MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ",
       "NM","NY","NC","ND","OH","OK","OR","PA","RI","SC",
       "SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC"
+    ];
+
+    const PROVINCES = [
+      "AB","BC","MB","NB","NL","NS","NT","NU","ON","PE",
+      "QC","SK","YT"
     ];
 
     const EAST_COAST_STATES = [
@@ -330,8 +353,8 @@
       const tripCount = Object.keys(current).length;
       const historicalCount = Object.keys(historical).length;
     
-      // Total states = 50 (or 51 if you include DC — adjust as needed)
-      const totalStates = 51;
+      // Total: 50 US states + DC + 13 Canadian provinces/territories
+      const totalStates = 51 + 13;
       const neverCount = totalStates - historicalCount;
     
       document.getElementById("trip-count").textContent = tripCount;
@@ -385,7 +408,7 @@
     }
 
     const stateListEl = document.getElementById("state-list");
-    const mapGridEl = document.getElementById("map-grid");
+    const provinceListEl = document.getElementById("province-list");
     const eastGridEl = document.getElementById("east-coast-grid");
 
     function renderStateList(historical, current) {
@@ -407,14 +430,22 @@
       });
     }
 
-    function renderGridMap(historical, current) {
-      mapGridEl.innerHTML = "";
-      STATES.forEach((state) => {
-        const status = getStateStatus(state, historical, current);
-        const cell = document.createElement("div");
-        cell.className = `map-cell ${status}`;
-        cell.textContent = state;
-        mapGridEl.appendChild(cell);
+    function renderProvinceList(historical, current) {
+      provinceListEl.innerHTML = "";
+      PROVINCES.forEach((province) => {
+        const status = getStateStatus(province, historical, current);
+        const item = document.createElement("div");
+        item.className = `state-item ${status}`;
+        item.textContent = province;
+
+        addPressHandlers(
+          item,
+          () => handleStateClick(province),
+          () => handleUndoCurrentTrip(province),
+          () => handleFullResetState(province)
+        );
+
+        provinceListEl.appendChild(item);
       });
     }
 
@@ -434,6 +465,7 @@
       const current = loadSightings(STORAGE_KEYS.current);
       updateCounters(historical, current);
       renderStateList(historical, current);
+      renderProvinceList(historical, current);
       renderEastCoastGrid(historical, current);
     }
 
