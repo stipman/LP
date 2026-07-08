@@ -96,8 +96,10 @@
       display: flex;
       flex-wrap: wrap;
       gap: 0.5rem;
-      margin-bottom: 0.5rem;
+      justify-content: center;
+      padding: 1.5rem 1rem;
       font-size: 0.8rem;
+      color: var(--text);
     }
 
     .legend-item {
@@ -224,6 +226,11 @@
       font-size: 1.1rem;
       margin-bottom: 0.5rem;
     }
+
+    footer {
+      border-top: 1px solid #333;
+      margin-top: 2rem;
+    }
     
   </style>
 </head>
@@ -264,12 +271,6 @@
         <h2>East Coast States</h2>
         <div id="east-coast-grid" class="map-grid"></div>
       </section>
-
-      <div class="legend">
-        <div class="legend-item"><span class="legend-swatch never"></span>Never</div>
-        <div class="legend-item"><span class="legend-swatch this-trip"></span>This trip</div>
-        <div class="legend-item"><span class="legend-swatch previous-trip"></span>Previous trip</div>
-      </div>
     </section>
 
     <section class="full-width-panel">
@@ -277,6 +278,14 @@
       <div id="province-list" class="state-list"></div>
     </section>
   </main>
+
+  <footer>
+    <div class="legend">
+      <div class="legend-item"><span class="legend-swatch never"></span>Never</div>
+      <div class="legend-item"><span class="legend-swatch this-trip"></span>This trip</div>
+      <div class="legend-item"><span class="legend-swatch previous-trip"></span>Previous trip</div>
+    </div>
+  </footer>
 
   <script>
     const STATES = [
