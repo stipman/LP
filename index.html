@@ -51,6 +51,7 @@
       flex-wrap: wrap;
       gap: 0.5rem;
       margin-bottom: 1rem;
+      align-items: center;
     }
 
     button {
@@ -65,6 +66,37 @@
 
     button.danger {
       background: #d32f2f;
+    }
+
+    button.success {
+      background: var(--this-trip);
+      color: #000;
+    }
+
+    select {
+      border: none;
+      border-radius: 4px;
+      padding: 0.4rem 0.7rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      background: #333;
+      color: var(--text);
+      border: 1px solid #555;
+    }
+
+    .trip-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      padding: 0.5rem 0;
+      font-size: 0.9rem;
+      color: #aaa;
+    }
+
+    .trip-name {
+      font-weight: 600;
+      color: var(--text);
     }
 
     .layout {
@@ -243,9 +275,21 @@
 
   <main>
     <section class="controls">
+      <button id="start-trip" class="success">Start New Trip</button>
       <button id="reset-current">Reset current trip</button>
       <button id="reset-all" class="danger">Full reset (all history)</button>
+      <div style="flex: 1; min-width: 200px; display: flex; gap: 0.5rem; align-items: center;">
+        <label for="trip-select" style="font-size: 0.85rem;">View trip:</label>
+        <select id="trip-select">
+          <option value="">-- Current Trip --</option>
+        </select>
+      </div>
     </section>
+
+    <div class="trip-info">
+      <span>Current Trip:</span>
+      <span class="trip-name" id="current-trip-name">--</span>
+    </div>
 
     <section class="layout">
       <section class="panel">
@@ -308,8 +352,15 @@
 
     const STORAGE_KEYS = {
       historical: "lp_historical_sightings",
-      current: "lp_current_trip_sightings"
+      current: "lp_current_trip_sightings",
+      trips: "lp_trips_history",
+      currentTripName: "lp_current_trip_name"
     };
+
+    function getDefaultTripName() {
+      const today = new Date();
+      return today.toISOString().split('T')[0];
+    }
 
     function loadSightings(key) {
       const raw = localStorage.getItem(key);
@@ -324,6 +375,78 @@
 
     function clearSightings(key) {
       localStorage.removeItem(key);
+    }
+
+    function loadTrips() {
+      const raw = localStorage.getItem(STORAGE_KEYS.trips);
+      if (!raw) return {};
+      try { return JSON.parse(raw); }
+      catch { return {}; }
+    }
+
+    function saveTrips(trips) {
+      localStorage.setItem(STORAGE_KEYS.trips, JSON.stringify(trips));
+    }
+
+    function getCurrentTripName() {
+      return localStorage.getItem(STORAGE_KEYS.currentTripName) || getDefaultTripName();
+    }
+
+    function setCurrentTripName(name) {
+      localStorage.setItem(STORAGE_KEYS.currentTripName, name);
+    }
+
+    function saveCurrentTrip() {
+      const trips = loadTrips();
+      const tripName = getCurrentTripName();
+      const current = loadSightings(STORAGE_KEYS.current);
+      
+      if (Object.keys(current).length > 0) {
+        trips[tripName] = {
+          name: tripName,
+          sightings: current,
+          savedAt: new Date().toISOString()
+        };
+        saveTrips(trips);
+      }
+    }
+
+    function startNewTrip() {
+      const defaultName = getDefaultTripName();
+      const customName = prompt("Name for this trip:", defaultName);
+      
+      if (customName === null) return;
+      
+      const tripName = customName.trim() || defaultName;
+      
+      saveCurrentTrip();
+      clearSightings(STORAGE_KEYS.current);
+      setCurrentTripName(tripName);
+      render();
+      updateTripSelect();
+    }
+
+    function viewTrip(tripName) {
+      if (!tripName) {
+        render();
+        return;
+      }
+      
+      const trips = loadTrips();
+      const trip = trips[tripName];
+      
+      if (trip) {
+        const historical = loadSightings(STORAGE_KEYS.historical);
+        const stateListEl = document.getElementById("state-list");
+        const provinceListEl = document.getElementById("province-list");
+        const eastGridEl = document.getElementById("east-coast-grid");
+        
+        renderStateList(historical, trip.sightings, tripName);
+        renderProvinceList(historical, trip.sightings, tripName);
+        renderEastCoastGrid(historical, trip.sightings, tripName);
+        updateCounters(historical, trip.sightings);
+        document.getElementById("current-trip-name").textContent = `${tripName} (archived)`;
+      }
     }
 
     function getStateStatus(state, historical, current) {
@@ -362,7 +485,6 @@
       const tripCount = Object.keys(current).length;
       const historicalCount = Object.keys(historical).length;
     
-      // Total: 50 US states + DC + 13 Canadian provinces/territories
       const totalStates = 51 + 13;
       const neverCount = totalStates - historicalCount;
     
@@ -413,14 +535,17 @@
       if (!confirm("Full reset: clear ALL history and current trip")) return;
       clearSightings(STORAGE_KEYS.current);
       clearSightings(STORAGE_KEYS.historical);
+      clearSightings(STORAGE_KEYS.trips);
+      setCurrentTripName(getDefaultTripName());
       render();
+      updateTripSelect();
     }
 
     const stateListEl = document.getElementById("state-list");
     const provinceListEl = document.getElementById("province-list");
     const eastGridEl = document.getElementById("east-coast-grid");
 
-    function renderStateList(historical, current) {
+    function renderStateList(historical, current, viewingTrip = false) {
       stateListEl.innerHTML = "";
       STATES.forEach((state) => {
         const status = getStateStatus(state, historical, current);
@@ -428,18 +553,20 @@
         item.className = `state-item ${status}`;
         item.textContent = state;
 
-        addPressHandlers(
-          item,
-          () => handleStateClick(state),
-          () => handleUndoCurrentTrip(state),
-          () => handleFullResetState(state)
-        );
+        if (!viewingTrip) {
+          addPressHandlers(
+            item,
+            () => handleStateClick(state),
+            () => handleUndoCurrentTrip(state),
+            () => handleFullResetState(state)
+          );
+        }
 
         stateListEl.appendChild(item);
       });
     }
 
-    function renderProvinceList(historical, current) {
+    function renderProvinceList(historical, current, viewingTrip = false) {
       provinceListEl.innerHTML = "";
       PROVINCES.forEach((province) => {
         const status = getStateStatus(province, historical, current);
@@ -447,18 +574,20 @@
         item.className = `state-item ${status}`;
         item.textContent = province;
 
-        addPressHandlers(
-          item,
-          () => handleStateClick(province),
-          () => handleUndoCurrentTrip(province),
-          () => handleFullResetState(province)
-        );
+        if (!viewingTrip) {
+          addPressHandlers(
+            item,
+            () => handleStateClick(province),
+            () => handleUndoCurrentTrip(province),
+            () => handleFullResetState(province)
+          );
+        }
 
         provinceListEl.appendChild(item);
       });
     }
 
-    function renderEastCoastGrid(historical, current) {
+    function renderEastCoastGrid(historical, current, viewingTrip = false) {
       eastGridEl.innerHTML = "";
       EAST_COAST_STATES.forEach((state) => {
         const status = getStateStatus(state, historical, current);
@@ -469,6 +598,20 @@
       });
     }
 
+    function updateTripSelect() {
+      const select = document.getElementById("trip-select");
+      const trips = loadTrips();
+      const tripNames = Object.keys(trips).sort().reverse();
+      
+      select.innerHTML = '<option value="">-- Current Trip --</option>';
+      tripNames.forEach(name => {
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        select.appendChild(option);
+      });
+    }
+
     function render() {
       const historical = loadSightings(STORAGE_KEYS.historical);
       const current = loadSightings(STORAGE_KEYS.current);
@@ -476,11 +619,15 @@
       renderStateList(historical, current);
       renderProvinceList(historical, current);
       renderEastCoastGrid(historical, current);
+      document.getElementById("current-trip-name").textContent = getCurrentTripName();
     }
 
+    document.getElementById("start-trip").addEventListener("click", startNewTrip);
     document.getElementById("reset-current").addEventListener("click", handleResetCurrentTrip);
     document.getElementById("reset-all").addEventListener("click", handleFullReset);
+    document.getElementById("trip-select").addEventListener("change", (e) => viewTrip(e.target.value));
 
+    updateTripSelect();
     render();
   </script>
 </body>
