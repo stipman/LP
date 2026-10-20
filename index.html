@@ -493,7 +493,23 @@
       document.getElementById("never-count").textContent = neverCount;
     }
 
+    function confirmStateSelection(state) {
+      const historical = loadSightings(STORAGE_KEYS.historical);
+      const current = loadSightings(STORAGE_KEYS.current);
+      const status = getStateStatus(state, historical, current);
+
+      const messageMap = {
+        "never": `Mark ${state} as seen on this trip?`,
+        "this-trip": `Update ${state} status for this trip?`,
+        "previous-trip": `Mark ${state} as seen on this trip? It is already in the historical list.`
+      };
+
+      return window.confirm(messageMap[status] || `Change the status for ${state}?`);
+    }
+
     function handleStateClick(state) {
+      if (!confirmStateSelection(state)) return;
+
       const historical = loadSightings(STORAGE_KEYS.historical);
       const current = loadSightings(STORAGE_KEYS.current);
       const now = new Date().toISOString();
