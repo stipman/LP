@@ -239,7 +239,7 @@
       font-size: 0.75rem;
       color: var(--muted);
     }
-    
+
     #counter-bar {
       display: flex;
       justify-content: space-around;
@@ -249,19 +249,19 @@
       background: #fafafa;
       border-bottom: 2px solid #ddd;
     }
-    
+
     .counter-box {
       text-align: center;
       padding: 0.6rem 1rem;
       border-radius: 8px;
       min-width: 120px;
     }
-    
+
     .counter-box.trip {
       background: var(--this-trip);
       color: #000;
     }
-    
+
     .counter-box.historical {
       background: var(--previous-trip);
       color: #000;
@@ -276,7 +276,7 @@
       font-weight: 700;
       display: block;
     }
-    
+
     .counter-label {
       font-size: 0.9rem;
       opacity: 0.9;
@@ -375,7 +375,7 @@
             <div class="counter-box trip">
               <span class="counter-number" id="trip-count">0</span>
               <span class="counter-label">Seen This Trip</span>
-            </div>    
+            </div>
             <div class="counter-box historical">
               <span class="counter-number" id="historical-count">0</span>
               <span class="counter-label">Seen Historically</span>
@@ -491,7 +491,7 @@
       const trips = loadTrips();
       const tripName = getCurrentTripName();
       const current = loadSightings(STORAGE_KEYS.current);
-      
+
       if (Object.keys(current).length > 0) {
         trips[tripName] = {
           name: tripName,
@@ -505,11 +505,11 @@
     function startNewTrip() {
       const defaultName = getDefaultTripName();
       const customName = prompt("Name for this trip:", defaultName);
-      
+
       if (customName === null) return;
-      
+
       const tripName = customName.trim() || defaultName;
-      
+
       saveCurrentTrip();
       clearSightings(STORAGE_KEYS.current);
       setCurrentTripName(tripName);
@@ -522,10 +522,10 @@
         render();
         return;
       }
-      
+
       const trips = loadTrips();
       const trip = trips[tripName];
-      
+
       if (trip) {
         const historical = loadSightings(STORAGE_KEYS.historical);
         renderStateList(historical, trip.sightings, tripName);
@@ -546,7 +546,7 @@
       if (navigator.vibrate) navigator.vibrate(pattern);
     }
 
-    function addPressHandlers(element, onTap, onLongPress, onExtraLongPress) {
+    function attachInteractionHandlers(element, onTap, onLongPress, onExtraLongPress) {
       let pressStart = 0;
 
       const start = () => { pressStart = Date.now(); };
@@ -561,11 +561,15 @@
         pressStart = 0;
       };
 
+      element.addEventListener("click", (event) => {
+        event.preventDefault();
+        onTap();
+      });
       element.addEventListener("touchstart", start);
       element.addEventListener("touchend", end);
       element.addEventListener("mousedown", start);
       element.addEventListener("mouseup", end);
-      element.addEventListener("contextmenu", (e) => e.preventDefault());
+      element.addEventListener("contextmenu", (event) => event.preventDefault());
     }
 
     function updateCounters(historical, current) {
@@ -573,7 +577,7 @@
       const historicalCount = Object.keys(historical).length;
       const totalStates = 51 + 13;
       const neverCount = totalStates - historicalCount;
-      
+
       document.getElementById("trip-count").textContent = tripCount;
       document.getElementById("historical-count").textContent = historicalCount;
       document.getElementById("never-count").textContent = neverCount;
@@ -628,7 +632,7 @@
       saveSightings(STORAGE_KEYS.historical, historical);
       render();
 
-      const selectedCells = document.querySelectorAll(`.state-item, .map-cell`);
+      const selectedCells = document.querySelectorAll(".state-item, .map-cell");
       selectedCells.forEach((element) => {
         const text = element.textContent && element.textContent.trim();
         if (text === state) {
@@ -689,7 +693,7 @@
         item.textContent = state;
 
         if (!viewingTrip) {
-          addPressHandlers(
+          attachInteractionHandlers(
             item,
             () => handleStateClick(state),
             () => handleUndoCurrentTrip(state),
@@ -710,7 +714,7 @@
         item.textContent = province;
 
         if (!viewingTrip) {
-          addPressHandlers(
+          attachInteractionHandlers(
             item,
             () => handleStateClick(province),
             () => handleUndoCurrentTrip(province),
@@ -737,7 +741,7 @@
       const select = document.getElementById("trip-select");
       const trips = loadTrips();
       const tripNames = Object.keys(trips).sort().reverse();
-      
+
       select.innerHTML = '<option value="">-- Current Trip --</option>';
       tripNames.forEach(name => {
         const option = document.createElement("option");
