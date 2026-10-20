@@ -585,6 +585,8 @@
     }
 
     function applyStateChange(state) {
+      if (!state) return;
+
       const historical = loadSightings(STORAGE_KEYS.historical);
       const current = loadSightings(STORAGE_KEYS.current);
       const now = new Date().toISOString();
@@ -719,10 +721,11 @@
 
     document.getElementById("confirm-cancel").addEventListener("click", closeConfirmModal);
     document.getElementById("confirm-accept").addEventListener("click", () => {
-      if (pendingState) {
-        applyStateChange(pendingState);
-      }
+      const selectedState = pendingState;
       closeConfirmModal();
+      if (selectedState) {
+        applyStateChange(selectedState);
+      }
     });
 
     document.getElementById("confirm-modal").addEventListener("click", (event) => {
