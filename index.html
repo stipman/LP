@@ -13,6 +13,11 @@
       --bg: #222;
       --text: #eee;
       --accent: #2196f3;
+      --modal-bg: rgba(0, 0, 0, 0.72);
+      --panel-bg: #1a1a1a;
+      --panel-border: #333;
+      --muted: #aaa;
+      --danger: #d32f2f;
     }
 
     body {
@@ -37,7 +42,7 @@
     header p {
       margin: 0.3rem 0 0;
       font-size: 0.9rem;
-      color: #aaa;
+      color: var(--muted);
     }
 
     main {
@@ -62,15 +67,25 @@
       cursor: pointer;
       background: var(--accent);
       color: white;
+      transition: opacity 0.2s ease;
+    }
+
+    button:hover {
+      opacity: 0.92;
     }
 
     button.danger {
-      background: #d32f2f;
+      background: var(--danger);
     }
 
     button.success {
       background: var(--this-trip);
       color: #000;
+    }
+
+    button.secondary {
+      background: #444;
+      color: var(--text);
     }
 
     select {
@@ -91,7 +106,7 @@
       align-items: center;
       padding: 0.5rem 0;
       font-size: 0.9rem;
-      color: #aaa;
+      color: var(--muted);
     }
 
     .trip-name {
@@ -112,10 +127,10 @@
     }
 
     .panel {
-      background: #1a1a1a;
+      background: var(--panel-bg);
       border-radius: 8px;
       padding: 1rem;
-      border: 1px solid #333;
+      border: 1px solid var(--panel-border);
     }
 
     .panel h2 {
@@ -200,7 +215,7 @@
     .footer-note {
       margin-top: 0.6rem;
       font-size: 0.75rem;
-      color: #aaa;
+      color: var(--muted);
     }
     
     #counter-bar {
@@ -246,10 +261,10 @@
     }
 
     .full-width-panel {
-      background: #1a1a1a;
+      background: var(--panel-bg);
       border-radius: 8px;
       padding: 1rem;
-      border: 1px solid #333;
+      border: 1px solid var(--panel-border);
       margin-top: 1.5rem;
     }
 
@@ -263,7 +278,48 @@
       border-top: 1px solid #333;
       margin-top: 2rem;
     }
-    
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: var(--modal-bg);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 1rem;
+    }
+
+    .modal-backdrop.visible {
+      display: flex;
+    }
+
+    .modal {
+      width: min(90vw, 420px);
+      background: #111;
+      border: 1px solid #444;
+      border-radius: 12px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+      padding: 1.25rem;
+    }
+
+    .modal h3 {
+      margin: 0 0 0.75rem;
+      font-size: 1.2rem;
+    }
+
+    .modal p {
+      margin: 0 0 1rem;
+      color: #ddd;
+      line-height: 1.5;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
   </style>
 </head>
 
@@ -331,6 +387,17 @@
     </div>
   </footer>
 
+  <div id="confirm-modal" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <h3 id="confirm-title">Confirm status change</h3>
+      <p id="confirm-message">Are you sure?</p>
+      <div class="modal-actions">
+        <button type="button" id="confirm-cancel" class="secondary">Cancel</button>
+        <button type="button" id="confirm-accept" class="success">Confirm</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const STATES = [
       "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA",
@@ -356,6 +423,8 @@
       trips: "lp_trips_history",
       currentTripName: "lp_current_trip_name"
     };
+
+    let pendingState = null;
 
     function getDefaultTripName() {
       const today = new Date();
@@ -437,10 +506,6 @@
       
       if (trip) {
         const historical = loadSightings(STORAGE_KEYS.historical);
-        const stateListEl = document.getElementById("state-list");
-        const provinceListEl = document.getElementById("province-list");
-        const eastGridEl = document.getElementById("east-coast-grid");
-        
         renderStateList(historical, trip.sightings, tripName);
         renderProvinceList(historical, trip.sightings, tripName);
         renderEastCoastGrid(historical, trip.sightings, tripName);
@@ -484,19 +549,26 @@
     function updateCounters(historical, current) {
       const tripCount = Object.keys(current).length;
       const historicalCount = Object.keys(historical).length;
-    
       const totalStates = 51 + 13;
       const neverCount = totalStates - historicalCount;
-    
+      
       document.getElementById("trip-count").textContent = tripCount;
       document.getElementById("historical-count").textContent = historicalCount;
       document.getElementById("never-count").textContent = neverCount;
     }
 
-    function confirmStateSelection(state) {
+    function closeConfirmModal() {
+      const modal = document.getElementById("confirm-modal");
+      modal.classList.remove("visible");
+      modal.setAttribute("aria-hidden", "true");
+      pendingState = null;
+    }
+
+    function showConfirmModal(state) {
       const historical = loadSightings(STORAGE_KEYS.historical);
       const current = loadSightings(STORAGE_KEYS.current);
       const status = getStateStatus(state, historical, current);
+      const modalMessage = document.getElementById("confirm-message");
 
       const messageMap = {
         "never": `Mark ${state} as seen on this trip?`,
@@ -504,12 +576,15 @@
         "previous-trip": `Mark ${state} as seen on this trip? It is already in the historical list.`
       };
 
-      return window.confirm(messageMap[status] || `Change the status for ${state}?`);
+      pendingState = state;
+      modalMessage.textContent = messageMap[status] || `Change the status for ${state}?`;
+
+      const modal = document.getElementById("confirm-modal");
+      modal.classList.add("visible");
+      modal.setAttribute("aria-hidden", "false");
     }
 
-    function handleStateClick(state) {
-      if (!confirmStateSelection(state)) return;
-
+    function applyStateChange(state) {
       const historical = loadSightings(STORAGE_KEYS.historical);
       const current = loadSightings(STORAGE_KEYS.current);
       const now = new Date().toISOString();
@@ -520,6 +595,10 @@
       saveSightings(STORAGE_KEYS.current, current);
       saveSightings(STORAGE_KEYS.historical, historical);
       render();
+    }
+
+    function handleStateClick(state) {
+      showConfirmModal(state);
     }
 
     function handleUndoCurrentTrip(state) {
@@ -637,6 +716,20 @@
       renderEastCoastGrid(historical, current);
       document.getElementById("current-trip-name").textContent = getCurrentTripName();
     }
+
+    document.getElementById("confirm-cancel").addEventListener("click", closeConfirmModal);
+    document.getElementById("confirm-accept").addEventListener("click", () => {
+      if (pendingState) {
+        applyStateChange(pendingState);
+      }
+      closeConfirmModal();
+    });
+
+    document.getElementById("confirm-modal").addEventListener("click", (event) => {
+      if (event.target === event.currentTarget) {
+        closeConfirmModal();
+      }
+    });
 
     document.getElementById("start-trip").addEventListener("click", startNewTrip);
     document.getElementById("reset-current").addEventListener("click", handleResetCurrentTrip);
