@@ -548,25 +548,38 @@
 
     function attachInteractionHandlers(element, onTap, onLongPress, onExtraLongPress) {
       let pressStart = 0;
+      let pressHandled = false;
 
-      const start = () => { pressStart = Date.now(); };
+      const start = () => {
+        pressStart = Date.now();
+        pressHandled = false;
+      };
+
       const end = () => {
         if (!pressStart) return;
         const duration = Date.now() - pressStart;
 
-        if (duration < 500) onTap();
-        else if (duration < 1500) { vibrate(40); onLongPress(); }
-        else { vibrate([60,40,60]); onExtraLongPress(); }
+        if (duration >= 1500) {
+          pressHandled = true;
+          vibrate([60, 40, 60]);
+          onExtraLongPress();
+        } else if (duration >= 500) {
+          pressHandled = true;
+          vibrate(40);
+          onLongPress();
+        }
 
         pressStart = 0;
       };
 
       element.addEventListener("click", (event) => {
         event.preventDefault();
+        if (pressHandled) return;
         onTap();
       });
-      element.addEventListener("touchstart", start);
-      element.addEventListener("touchend", end);
+
+      element.addEventListener("touchstart", start, { passive: true });
+      element.addEventListener("touchend", end, { passive: true });
       element.addEventListener("mousedown", start);
       element.addEventListener("mouseup", end);
       element.addEventListener("contextmenu", (event) => event.preventDefault());
